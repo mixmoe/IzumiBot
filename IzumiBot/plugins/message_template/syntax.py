@@ -160,24 +160,48 @@ class Variable(Node):
 
 
 class Each(ScopableNode):
+    MATCH_REGEX = re.compile(
+        r"^each\s+(?P<item>\w+?)\s+in\s+(?P<iterator>.+?)(?:\s+max\s+(?P<max>.+?))?$"
+    )
+
     def process_fragment(self, fragment: Fragment):
+        matched = self.MATCH_REGEX.match(fragment.clean)
+        if matched is None:
+            raise TemplateSyntaxError(fragment)
+        self.item_name = matched.group("item")
+
+        iterator = matched.group("iterator")
+        max = matched.group("max")
         try:
-            _, it = WHITESPACE.split(fragment.clean, 1)
-            self.it = Evaluation.eval(it)
+            self.it = Evaluation.eval(iterator)
+            self.max = Evaluation.eval(max) if max is not None else None
         except ValueError as e:
             raise TemplateSyntaxError(fragment) from e
 
     def render(self, context: Dict[str, Any]):
-        items = (
+        max = (
+            None
+            if self.max is None
+            else int(
+                self.max.result
+                if self.max.type is Evaluation.ResultType.LITERAL
+                else resolve(self.it.result, context)
+            )
+        )
+        items: List[Any] = list(
             self.it.result
             if self.it.type is Evaluation.ResultType.LITERAL
             else resolve(self.it.result, context)
         )
 
-        def render_item(item):
-            return self.render_children({"..": context, "it": item})
-
-        return "".join(map(render_item, items))
+        return "".join(
+            map(
+                lambda item: self.render_children(
+                    {"..": context, self.item_name: item}
+                ),
+                items if max is None else items[:max],
+            )
+        )
 
 
 class If(ScopableNode):
