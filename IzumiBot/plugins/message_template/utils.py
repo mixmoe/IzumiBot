@@ -1,7 +1,7 @@
 import ast
-from typing import Any, Dict, Type
-from enum import IntEnum, auto
 from dataclasses import dataclass
+from enum import IntEnum, auto
+from typing import Any, Dict, Type
 
 from .exceptions import TemplateContextError
 

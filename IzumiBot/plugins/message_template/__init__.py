@@ -1,9 +1,9 @@
 """
-Template Engine for OneBot v11 Specification
+Template Engine for chatbot message serialization
 
 Referenced Project: https://github.com/alexmic/microtemplates
 """
-from .base import Template  # noqa:F401
+from .base import Template
 
 
 def template_rend(template: str, **kwargs) -> str:
