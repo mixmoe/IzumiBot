@@ -19,6 +19,13 @@ class Evaluation:
         except (ValueError, SyntaxError):
             return cls(type=cls.ResultType.NAME, result=expression)
 
+    def resolve(self, context: Dict[str, Any]) -> Any:
+        return (
+            self.result
+            if self.type is Evaluation.ResultType.LITERAL
+            else resolve(self.result, context)
+        )
+
     type: ResultType
     result: Any
 
@@ -27,9 +34,19 @@ def resolve(name: str, context: Dict[str, Any]) -> Any:
     if name.startswith(".."):
         context = context.get("..", {})
         name = name[2:]
+
+    def extract(name: str, data: Any) -> Any:
+        if isinstance(data, dict) and name in data:
+            return data[name]
+        elif isinstance(data, list) and name.isdigit() and int(name) < len(data):
+            return data[int(name)]
+        elif hasattr(data, name):
+            return getattr(data, name)
+        raise ValueError(f"key {name!r} does not exist in {data!r}.")
+
     try:
-        for tok in name.split("."):
-            context = context[tok]
+        for token in name.split("."):
+            context = extract(token, context)
         return context
-    except KeyError:
-        raise TemplateContextError(name)
+    except (KeyError, IndexError, TypeError, ValueError) as e:
+        raise TemplateContextError(name) from e

@@ -67,7 +67,7 @@ class Fragment(object):
         raise TemplateSyntaxError(self)
 
     def __repr__(self) -> str:
-        return f"<{type(self).__qualname__} at 0x{id(self):x}, " f"{self.raw=}>"
+        return f"<{type(self).__qualname__} at 0x{id(self):x}, {self.raw=}>"
 
 
 class Node(metaclass=ABCMeta):
@@ -179,20 +179,8 @@ class Each(ScopableNode):
             raise TemplateSyntaxError(fragment) from e
 
     def render(self, context: Dict[str, Any]):
-        max = (
-            None
-            if self.max is None
-            else int(
-                self.max.result
-                if self.max.type is Evaluation.ResultType.LITERAL
-                else resolve(self.it.result, context)
-            )
-        )
-        items: List[Any] = list(
-            self.it.result
-            if self.it.type is Evaluation.ResultType.LITERAL
-            else resolve(self.it.result, context)
-        )
+        max = None if self.max is None else int(self.max.resolve(context))
+        items: List[Any] = [*self.it.resolve(context)]
 
         return "".join(
             map(
@@ -230,11 +218,7 @@ class If(ScopableNode):
         )
 
     def resolve_side(self, side: Evaluation, context: Dict[str, Any]):
-        return (
-            side.result
-            if side.type is Evaluation.ResultType.LITERAL
-            else resolve(side.result, context)
-        )
+        return side.resolve(context)
 
     def exit_scope(self):
         self.if_branch, self.else_branch = self.split_children()
@@ -278,17 +262,9 @@ class Call(Node):
     def render(self, context: Dict[str, Any]):
         resolved_args, resolved_kwargs = [], {}
         for result in self.args:
-            resolved_args.append(
-                result
-                if result.type is Evaluation.ResultType.LITERAL
-                else resolve(result.result, context)
-            )
+            resolved_args.append(result.resolve(context))
         for key, result in self.kwargs.items():
-            resolved_kwargs[key] = (
-                result
-                if result.type is Evaluation.ResultType.LITERAL
-                else resolve(result.result, context)
-            )
+            resolved_kwargs[key] = result.resolve(context)
         resolved_callable = resolve(self.callable, context)
         if not callable(resolved_callable):
             raise TemplateError(f"{self.callable} is not callable.")
